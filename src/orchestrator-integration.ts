@@ -22,7 +22,10 @@ function getBridge(): unknown {
     try {
       const __dirname = dirname(fileURLToPath(import.meta.url));
       const orchestratorPath = resolve(__dirname, "../../openclaw-orchestrator-next/dist/index.js");
-      const orch = require(orchestratorPath);
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const orch = require(orchestratorPath) as {
+        OpenClawRuntimeBridge: new () => { handle: (event: unknown) => Promise<unknown> };
+      };
       bridge = new orch.OpenClawRuntimeBridge();
       console.log(`[orchestrator] Bridge initialized (mode: ${orchMode})`);
     } catch (err) {
@@ -45,8 +48,10 @@ export function isOrchestratorEnabled(): boolean {
 }
 
 // Event emission functions
+type BridgeHandle = { handle: (event: unknown) => Promise<unknown> };
+
 export async function emitPreDispatch(storyId: string, storyTitle?: string): Promise<void> {
-  const b = getBridge();
+  const b = getBridge() as BridgeHandle | null;
   if (!b) {
     return;
   }
@@ -69,7 +74,7 @@ export async function emitComplete(
   result: "success" | "failure" = "success",
   summary?: string,
 ): Promise<void> {
-  const b = getBridge();
+  const b = getBridge() as BridgeHandle | null;
   if (!b) {
     return;
   }
@@ -102,7 +107,7 @@ export async function emitHalt(
   message: string,
   safeToRetry: boolean = true,
 ): Promise<void> {
-  const b = getBridge();
+  const b = getBridge() as BridgeHandle | null;
   if (!b) {
     return;
   }
