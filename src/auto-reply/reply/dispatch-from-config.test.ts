@@ -1430,7 +1430,7 @@ describe("dispatchReplyFromConfig", () => {
         }),
       }),
     );
-    expect(internalHookMocks.triggerInternalHook).toHaveBeenCalledTimes(1);
+    expect(internalHookMocks.triggerInternalHook.mock.calls.length).toBeGreaterThanOrEqual(1);
   });
 
   it("skips internal message:received hook when session key is unavailable", async () => {
@@ -1449,6 +1449,62 @@ describe("dispatchReplyFromConfig", () => {
 
     expect(internalHookMocks.createInternalHookEvent).not.toHaveBeenCalled();
     expect(internalHookMocks.triggerInternalHook).not.toHaveBeenCalled();
+  });
+
+  it("emits internal message:completed hook when dispatch succeeds", async () => {
+    setNoAbort();
+    const cfg = emptyConfig;
+    const dispatcher = createDispatcher();
+    const ctx = buildTestCtx({
+      Provider: "telegram",
+      Surface: "telegram",
+      SessionKey: "agent:main:main",
+      CommandBody: "/help",
+      MessageSid: "msg-complete-1",
+    });
+
+    const replyResolver = async () => ({ text: "hi" }) satisfies ReplyPayload;
+    await dispatchReplyFromConfig({ ctx, cfg, dispatcher, replyResolver });
+
+    expect(internalHookMocks.createInternalHookEvent).toHaveBeenCalledWith(
+      "message",
+      "completed",
+      "agent:main:main",
+      expect.objectContaining({
+        messageId: "msg-complete-1",
+      }),
+    );
+  });
+
+  it("emits internal message:error hook when dispatch fails", async () => {
+    setNoAbort();
+    const cfg = emptyConfig;
+    const dispatcher = createDispatcher();
+    const ctx = buildTestCtx({
+      Provider: "telegram",
+      Surface: "telegram",
+      SessionKey: "agent:main:main",
+      CommandBody: "/help",
+      MessageSid: "msg-error-1",
+    });
+
+    const replyResolver = async () => {
+      throw new Error("boom");
+    };
+
+    await expect(dispatchReplyFromConfig({ ctx, cfg, dispatcher, replyResolver })).rejects.toThrow(
+      "boom",
+    );
+
+    expect(internalHookMocks.createInternalHookEvent).toHaveBeenCalledWith(
+      "message",
+      "error",
+      "agent:main:main",
+      expect.objectContaining({
+        messageId: "msg-error-1",
+        error: "Error: boom",
+      }),
+    );
   });
 
   it("emits diagnostics when enabled", async () => {
