@@ -168,5 +168,20 @@ export const handleAbortTrigger: CommandHandler = async (params, allowTextComman
       targetSessionKey: abortTarget.key,
     }),
   });
+
+  // Trigger internal hook for text abort trigger (halt-equivalent path)
+  const hookEvent = createInternalHookEvent(
+    "command",
+    "abort",
+    abortTarget.key ?? params.sessionKey ?? "",
+    {
+      sessionEntry: abortTarget.entry ?? params.sessionEntry,
+      sessionId: abortTarget.sessionId,
+      commandSource: params.command.surface,
+      senderId: params.command.senderId,
+    },
+  );
+  await triggerInternalHook(hookEvent);
+
   return { shouldContinue: false, reply: { text: "⚙️ Agent was aborted." } };
 };

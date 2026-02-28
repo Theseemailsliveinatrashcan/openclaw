@@ -571,10 +571,35 @@ export async function dispatchReplyFromConfig(params: {
     counts.final += routedFinalCount;
     recordProcessed("completed");
     markIdle("message_completed");
+    if (sessionKey) {
+      void triggerInternalHook(
+        createInternalHookEvent("message", "completed", sessionKey, {
+          messageId: messageIdForHook,
+          channelId,
+          conversationId,
+          queuedFinal,
+          counts,
+        }),
+      ).catch((err) => {
+        logVerbose(`dispatch-from-config: message_completed internal hook failed: ${String(err)}`);
+      });
+    }
     return { queuedFinal, counts };
   } catch (err) {
     recordProcessed("error", { error: String(err) });
     markIdle("message_error");
+    if (sessionKey) {
+      void triggerInternalHook(
+        createInternalHookEvent("message", "error", sessionKey, {
+          messageId: messageIdForHook,
+          channelId,
+          conversationId,
+          error: String(err),
+        }),
+      ).catch((hookErr) => {
+        logVerbose(`dispatch-from-config: message_error internal hook failed: ${String(hookErr)}`);
+      });
+    }
     throw err;
   }
 }
