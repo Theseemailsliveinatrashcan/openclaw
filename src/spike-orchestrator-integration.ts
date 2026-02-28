@@ -15,7 +15,8 @@ import { fileURLToPath } from "url";
 
 // Dynamic import for ESM module
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const orchestratorPath = resolve(__dirname, "../openclaw-orchestrator-next/dist/index.js");
+// Go up from openclaw/src/ to workspace root, then into orchestrator-next
+const orchestratorPath = resolve(__dirname, "../../openclaw-orchestrator-next/dist/index.js");
 
 async function runSpike() {
   console.log("🧪 Starting orchestrator-next integration spike...\n");

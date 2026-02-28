@@ -9,6 +9,12 @@ import {
   logMessageQueued,
   logSessionStateChange,
 } from "../../logging/diagnostic.js";
+import {
+  emitComplete,
+  emitHalt,
+  emitPreDispatch,
+  isOrchestratorEnabled,
+} from "../../orchestrator-integration.js";
 import { getGlobalHookRunner } from "../../plugins/hook-runner-global.js";
 import { resolveSendPolicy } from "../../sessions/send-policy.js";
 import { maybeApplyTtsToPayload, normalizeTtsAutoMode, resolveTtsConfig } from "../../tts/tts.js";
@@ -155,6 +161,12 @@ export async function dispatchReplyFromConfig(params: {
   if (shouldSkipDuplicateInbound(ctx)) {
     recordProcessed("skipped", { reason: "duplicate" });
     return { queuedFinal: false, counts: dispatcher.getQueuedCounts() };
+  }
+
+  // Emit preDispatch event to orchestrator (if enabled)
+  if (isOrchestratorEnabled() && messageId) {
+    const storyId = `msg:${channel}:${messageId}`;
+    void emitPreDispatch(storyId, `Incoming ${channel} message`);
   }
 
   const sessionStoreEntry = resolveSessionStoreEntry(ctx, cfg);
@@ -584,10 +596,20 @@ export async function dispatchReplyFromConfig(params: {
         logVerbose(`dispatch-from-config: message_completed internal hook failed: ${String(err)}`);
       });
     }
+    // Emit complete event to orchestrator (if enabled)
+    if (isOrchestratorEnabled() && messageId) {
+      const storyId = `msg:${channel}:${messageId}`;
+      void emitComplete(storyId, startTime, "success", `Message processed successfully`);
+    }
     return { queuedFinal, counts };
   } catch (err) {
     recordProcessed("error", { error: String(err) });
     markIdle("message_error");
+    // Emit halt event to orchestrator (if enabled)
+    if (isOrchestratorEnabled() && messageId) {
+      const storyId = `msg:${channel}:${messageId}`;
+      void emitHalt(storyId, startTime, "tool-failure", String(err), true);
+    }
     if (sessionKey) {
       void triggerInternalHook(
         createInternalHookEvent("message", "error", sessionKey, {
